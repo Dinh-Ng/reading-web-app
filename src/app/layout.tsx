@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import AuthButton from "@/components/AuthButton";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -27,6 +28,11 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
+        <header className="border-b border-zinc-200 dark:border-zinc-800">
+          <div className="mx-auto max-w-3xl px-6 py-3 flex items-center justify-end">
+            <AuthButton />
+          </div>
+        </header>
         {children}
       </body>
     </html>
