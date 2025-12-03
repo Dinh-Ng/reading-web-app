@@ -15,6 +15,9 @@ export default function StoryPage() {
   const [userId, setUserId] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
   const [titleInput, setTitleInput] = useState("");
+  const [authorInput, setAuthorInput] = useState("");
+  const [authorLinkInput, setAuthorLinkInput] = useState("");
+  const [sourceInput, setSourceInput] = useState("");
 
   useEffect(() => {
     const load = async () => {
@@ -22,7 +25,8 @@ export default function StoryPage() {
         const ref = doc(db, "stories", id);
         const s = await getDoc(ref);
         if (s.exists()) {
-          setStory({ id: s.id, ...(s.data() as Omit<Story, "id">) });
+          const data = s.data() as Omit<Story, "id">;
+          setStory({ id: s.id, ...data });
         }
         const chCol = collection(db, "stories", id, "chapters");
         const snap = await getDocs(chCol);
@@ -50,12 +54,20 @@ export default function StoryPage() {
 
   const canManage = !!userId && !!story && story.createdBy === userId;
 
-  const saveTitle = async () => {
+  const saveStory = async () => {
     if (!canManage || !story) return;
     const newTitle = titleInput.trim();
     if (!newTitle) return;
-    await updateDoc(doc(db, "stories", story.id), { title: newTitle });
-    setStory({ ...story, title: newTitle });
+
+    const updates = {
+      title: newTitle,
+      author: authorInput.trim(),
+      authorLink: authorLinkInput.trim(),
+      source: sourceInput.trim(),
+    };
+
+    await updateDoc(doc(db, "stories", story.id), updates);
+    setStory({ ...story, ...updates });
     setEditing(false);
   };
 
@@ -81,21 +93,71 @@ export default function StoryPage() {
       <main className="mx-auto max-w-3xl p-6">
         <div className="flex items-center justify-between">
           {editing ? (
-            <div className="flex-1 flex items-center gap-2">
+            <div className="flex-1 flex flex-col gap-2">
               <input
-                className="flex-1 rounded border px-3 py-2 text-sm bg-white dark:bg-black text-black dark:text-zinc-50"
+                className="w-full rounded border px-3 py-2 text-sm bg-white dark:bg-black text-black dark:text-zinc-50"
                 value={titleInput}
                 onChange={(e) => setTitleInput(e.target.value)}
+                placeholder="Tên truyện"
               />
-              <button onClick={saveTitle} className="rounded border px-3 py-2 text-sm">Lưu</button>
-              <button onClick={() => setEditing(false)} className="rounded border px-3 py-2 text-sm">Hủy</button>
+              <div className="flex gap-2">
+                <input
+                  className="flex-1 rounded border px-3 py-2 text-sm bg-white dark:bg-black text-black dark:text-zinc-50"
+                  value={authorInput}
+                  onChange={(e) => setAuthorInput(e.target.value)}
+                  placeholder="Tên tác giả"
+                />
+                <input
+                  className="flex-1 rounded border px-3 py-2 text-sm bg-white dark:bg-black text-black dark:text-zinc-50"
+                  value={authorLinkInput}
+                  onChange={(e) => setAuthorLinkInput(e.target.value)}
+                  placeholder="Link tác giả (nếu có)"
+                />
+              </div>
+              <input
+                className="w-full rounded border px-3 py-2 text-sm bg-white dark:bg-black text-black dark:text-zinc-50"
+                value={sourceInput}
+                onChange={(e) => setSourceInput(e.target.value)}
+                placeholder="Nguồn truyện"
+              />
+              <div className="flex gap-2">
+                <button onClick={saveStory} className="rounded border px-3 py-2 text-sm">Lưu</button>
+                <button onClick={() => setEditing(false)} className="rounded border px-3 py-2 text-sm">Hủy</button>
+              </div>
             </div>
           ) : (
-            <h1 className="text-2xl font-semibold text-black dark:text-zinc-50">{story.title}</h1>
+            <div>
+              <h1 className="text-2xl font-semibold text-black dark:text-zinc-50">{story.title}</h1>
+              <div className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
+                {story.author && (
+                  <span className="mr-4">
+                    Tác giả:{" "}
+                    {story.authorLink ? (
+                      <a href={story.authorLink} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline dark:text-blue-400">
+                        {story.author}
+                      </a>
+                    ) : (
+                      story.author
+                    )}
+                  </span>
+                )}
+                {story.source && (
+                  <span>
+                    Nguồn: {story.source}
+                  </span>
+                )}
+              </div>
+            </div>
           )}
           {canManage && !editing && (
-            <div className="ml-4 flex items-center gap-2">
-              <button onClick={() => { setEditing(true); setTitleInput(story.title); }} className="rounded border px-3 py-2 text-sm">Sửa</button>
+            <div className="ml-4 flex items-center gap-2 self-start">
+              <button onClick={() => {
+                setEditing(true);
+                setTitleInput(story.title);
+                setAuthorInput(story.author || "");
+                setAuthorLinkInput(story.authorLink || "");
+                setSourceInput(story.source || "");
+              }} className="rounded border px-3 py-2 text-sm">Sửa</button>
               <button onClick={deleteStory} className="rounded border px-3 py-2 text-sm text-red-600">Xóa</button>
             </div>
           )}
