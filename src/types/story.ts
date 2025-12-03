@@ -1,6 +1,8 @@
 export type Story = {
   id: string;
   title: string;
+  createdBy?: string;
+  createdAt?: unknown;
 };
 
 export type Chapter = {
@@ -9,4 +11,3 @@ export type Chapter = {
   content: string;
   index?: number;
 };
-
