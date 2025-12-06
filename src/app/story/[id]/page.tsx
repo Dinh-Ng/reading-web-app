@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { auth, db } from "@/lib/firebase";
-import { collection, deleteDoc, doc, getDoc, getDocs, updateDoc } from "firebase/firestore";
+import { collection, deleteDoc, doc, getDoc, getDocs, updateDoc, addDoc } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
 import type { Story, Chapter } from "@/types/story";
 
@@ -18,6 +18,14 @@ export default function StoryPage() {
   const [authorInput, setAuthorInput] = useState("");
   const [authorLinkInput, setAuthorLinkInput] = useState("");
   const [sourceInput, setSourceInput] = useState("");
+
+  // Chapter management states
+  const [isChapterModalOpen, setIsChapterModalOpen] = useState(false);
+  const [chapterMode, setChapterMode] = useState<"create" | "edit">("create");
+  const [editingChapterId, setEditingChapterId] = useState<string | null>(null);
+  const [chapterTitle, setChapterTitle] = useState("");
+  const [chapterContent, setChapterContent] = useState("");
+  const [chapterIndex, setChapterIndex] = useState("");
 
   useEffect(() => {
     const load = async () => {
@@ -78,6 +86,120 @@ export default function StoryPage() {
     await Promise.all(chSnap.docs.map((d) => deleteDoc(doc(storyRef, "chapters", d.id))));
     await deleteDoc(storyRef);
     window.location.href = "/";
+  };
+
+  const openCreateChapterModal = () => {
+    setChapterMode("create");
+    setChapterTitle("");
+    setChapterContent("");
+    setChapterIndex("");
+    setEditingChapterId(null);
+    setIsChapterModalOpen(true);
+  };
+
+  const openEditChapterModal = (chapter: Chapter) => {
+    setChapterMode("edit");
+    setChapterTitle(chapter.title);
+    setChapterContent(chapter.content);
+    setChapterIndex(chapter.index?.toString() ?? "");
+    setEditingChapterId(chapter.id);
+    setIsChapterModalOpen(true);
+  };
+
+  const closeChapterModal = () => {
+    setIsChapterModalOpen(false);
+    setChapterTitle("");
+    setChapterContent("");
+    setChapterIndex("");
+    setEditingChapterId(null);
+  };
+
+  const createChapter = async () => {
+    if (!canManage || !story) return;
+    const title = chapterTitle.trim();
+    const content = chapterContent.trim();
+    if (!title || !content) return;
+
+    // Auto-assign index if not provided
+    let index: number;
+    if (chapterIndex.trim()) {
+      index = parseInt(chapterIndex);
+    } else {
+      // Find the highest index and add 1
+      const maxIndex = chapters.reduce((max, ch) => {
+        const idx = ch.index ?? -1;
+        return idx > max ? idx : max;
+      }, -1);
+      index = maxIndex + 1;
+    }
+
+    const chapterData = {
+      title,
+      content,
+      index,
+    };
+
+    const chaptersRef = collection(db, "stories", story.id, "chapters");
+    await addDoc(chaptersRef, chapterData);
+
+    // Refresh chapters list
+    const snap = await getDocs(chaptersRef);
+    const list: Chapter[] = snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<Chapter, "id">) }));
+    list.sort((a, b) => {
+      const ai = a.index ?? Number.MAX_SAFE_INTEGER;
+      const bi = b.index ?? Number.MAX_SAFE_INTEGER;
+      if (ai !== bi) return ai - bi;
+      const at = a.title?.toString() ?? "";
+      const bt = b.title?.toString() ?? "";
+      return at.localeCompare(bt);
+    });
+    setChapters(list);
+    closeChapterModal();
+  };
+
+  const updateChapter = async () => {
+    if (!canManage || !story || !editingChapterId) return;
+    const title = chapterTitle.trim();
+    const content = chapterContent.trim();
+    if (!title || !content) return;
+
+    const updates: Partial<Chapter> = {
+      title,
+      content,
+    };
+
+    if (chapterIndex.trim()) {
+      updates.index = parseInt(chapterIndex);
+    }
+
+    const chapterRef = doc(db, "stories", story.id, "chapters", editingChapterId);
+    await updateDoc(chapterRef, updates);
+
+    // Refresh chapters list
+    const chaptersRef = collection(db, "stories", story.id, "chapters");
+    const snap = await getDocs(chaptersRef);
+    const list: Chapter[] = snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<Chapter, "id">) }));
+    list.sort((a, b) => {
+      const ai = a.index ?? Number.MAX_SAFE_INTEGER;
+      const bi = b.index ?? Number.MAX_SAFE_INTEGER;
+      if (ai !== bi) return ai - bi;
+      const at = a.title?.toString() ?? "";
+      const bt = b.title?.toString() ?? "";
+      return at.localeCompare(bt);
+    });
+    setChapters(list);
+    closeChapterModal();
+  };
+
+  const deleteChapter = async (chapterId: string) => {
+    if (!canManage || !story) return;
+    if (!confirm("Bạn có chắc chắn muốn xóa chương này?")) return;
+
+    const chapterRef = doc(db, "stories", story.id, "chapters", chapterId);
+    await deleteDoc(chapterRef);
+
+    // Remove from local state
+    setChapters(chapters.filter((c) => c.id !== chapterId));
   };
 
   if (loading) {
@@ -163,16 +285,40 @@ export default function StoryPage() {
           )}
         </div>
         <h2 className="mt-4 text-lg font-medium text-black dark:text-zinc-50">Danh sách chương</h2>
+        {canManage && (
+          <button
+            onClick={openCreateChapterModal}
+            className="mt-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 transition-colors"
+          >
+            + Thêm chương
+          </button>
+        )}
         <ul className="mt-2 divide-y divide-zinc-200 dark:divide-zinc-800">
           {chapters.map((c) => (
-            <li key={c.id} className="py-2">
+            <li key={c.id} className="py-2 flex items-center justify-between">
               <Link
                 href={`/story/${story.id}/chapter/${c.id}`}
-                className="text-blue-600 dark:text-blue-400"
+                className="text-blue-600 dark:text-blue-400 flex-1"
               >
                 {c.index != null ? `Chương ${c.index}: ` : "Chương: "}
                 {c.title}
               </Link>
+              {canManage && (
+                <div className="ml-4 flex gap-2">
+                  <button
+                    onClick={() => openEditChapterModal(c)}
+                    className="rounded border px-2 py-1 text-xs text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                  >
+                    Sửa
+                  </button>
+                  <button
+                    onClick={() => deleteChapter(c.id)}
+                    className="rounded border px-2 py-1 text-xs text-red-600 hover:bg-red-50 dark:hover:bg-red-950"
+                  >
+                    Xóa
+                  </button>
+                </div>
+              )}
             </li>
           ))}
           {chapters.length === 0 && (
@@ -185,6 +331,124 @@ export default function StoryPage() {
           </Link>
         </div>
       </main>
+
+      {/* Chapter Modal */}
+      {isChapterModalOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-fadeIn"
+          onClick={closeChapterModal}
+        >
+          <div
+            className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-xl bg-white dark:bg-zinc-900 p-6 shadow-2xl animate-scaleIn"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Close button */}
+            <button
+              onClick={closeChapterModal}
+              className="absolute right-4 top-4 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 transition-colors"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+
+            {/* Modal header */}
+            <h2 className="text-xl font-semibold text-black dark:text-white mb-6">
+              {chapterMode === "create" ? "Thêm chương mới" : "Sửa chương"}
+            </h2>
+
+            {/* Form */}
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+                  Tiêu đề <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={chapterTitle}
+                  onChange={(e) => setChapterTitle(e.target.value)}
+                  placeholder="Nhập tiêu đề chương"
+                  className="w-full rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 px-3 py-2 text-sm text-black dark:text-white placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+                  Số thứ tự (để trống để tự động gán)
+                </label>
+                <input
+                  type="number"
+                  value={chapterIndex}
+                  onChange={(e) => setChapterIndex(e.target.value)}
+                  placeholder="Tự động"
+                  className="w-full rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 px-3 py-2 text-sm text-black dark:text-white placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+                  Nội dung <span className="text-red-500">*</span>
+                </label>
+                <textarea
+                  value={chapterContent}
+                  onChange={(e) => setChapterContent(e.target.value)}
+                  placeholder="Nhập nội dung chương"
+                  rows={12}
+                  className="w-full rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 px-3 py-2 text-sm text-black dark:text-white placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-vertical"
+                />
+              </div>
+            </div>
+
+            {/* Action buttons */}
+            <div className="mt-6 flex gap-3 justify-end">
+              <button
+                onClick={closeChapterModal}
+                className="rounded-lg border border-zinc-300 dark:border-zinc-700 px-4 py-2 text-sm font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+              >
+                Hủy
+              </button>
+              <button
+                onClick={chapterMode === "create" ? createChapter : updateChapter}
+                disabled={!chapterTitle.trim() || !chapterContent.trim()}
+                className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {chapterMode === "create" ? "Thêm chương" : "Lưu thay đổi"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* CSS animations */}
+      <style jsx>{`
+        @keyframes fadeIn {
+          from {
+            opacity: 0;
+          }
+          to {
+            opacity: 1;
+          }
+        }
+
+        @keyframes scaleIn {
+          from {
+            opacity: 0;
+            transform: scale(0.95);
+          }
+          to {
+            opacity: 1;
+            transform: scale(1);
+          }
+        }
+
+        .animate-fadeIn {
+          animation: fadeIn 0.2s ease-out;
+        }
+
+        .animate-scaleIn {
+          animation: scaleIn 0.2s ease-out;
+        }
+      `}</style>
     </div>
   );
 }
