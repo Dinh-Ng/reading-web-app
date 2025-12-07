@@ -1,4 +1,5 @@
 "use client";
+import React, { ReactNode } from "react";
 
 interface ChapterContentProps {
   content: string;
@@ -7,7 +8,7 @@ interface ChapterContentProps {
 export default function ChapterContent({ content }: ChapterContentProps) {
   const parseContent = (text: string) => {
     const lines = text.split('\n');
-    const elements: JSX.Element[] = [];
+    const elements: ReactNode[] = [];
 
     lines.forEach((line, index) => {
       // Check for horizontal divider (---)
@@ -48,7 +49,7 @@ export default function ChapterContent({ content }: ChapterContentProps) {
   };
 
   const processInlineFormatting = (line: string) => {
-    const parts: (string | JSX.Element)[] = [];
+    const parts: (string | ReactNode)[] = [];
     let currentIndex = 0;
 
     // Regex to find **text** pattern
