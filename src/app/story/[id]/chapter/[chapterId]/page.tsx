@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import { db } from "@/lib/firebase";
 import { collection, doc, getDoc, getDocs, orderBy, query, where } from "firebase/firestore";
 import type { Chapter, Story } from "@/types/story";
+import ChapterContent from "@/components/ChapterContent";
 
 export default function ChapterPage() {
   const { id, chapterId } = useParams<{ id: string; chapterId: string }>();
@@ -157,12 +158,7 @@ export default function ChapterPage() {
 
         {/* Reading Content */}
         <article className="bg-white dark:bg-zinc-900 rounded-3xl shadow-xl p-8 md:p-12 mb-12 border border-zinc-200 dark:border-zinc-800 animate-slideUp">
-          <div
-            className="reading-content text-zinc-800 dark:text-zinc-200 leading-relaxed"
-            style={{ whiteSpace: "pre-wrap" }}
-          >
-            {chapter.content}
-          </div>
+          <ChapterContent content={chapter.content} />
         </article>
 
         {/* Bottom Navigation */}
