@@ -12,17 +12,20 @@ const firebaseConfig = {
   measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID,
 };
 
-// Only initialize Firebase if we have valid config and we're in the browser
-const shouldInitialize =
-  typeof window !== 'undefined' &&
-  firebaseConfig.apiKey &&
-  firebaseConfig.apiKey !== 'undefined';
+// Check if we have a valid API key (not undefined or empty string)
+const hasValidConfig = firebaseConfig.apiKey && firebaseConfig.apiKey !== 'undefined' && firebaseConfig.apiKey.length > 0;
 
-const app = shouldInitialize
-  ? (getApps().length ? getApp() : initializeApp(firebaseConfig))
-  : null;
+// Initialize Firebase only if we have valid configuration
+let app;
+try {
+  app = hasValidConfig
+    ? (getApps().length ? getApp() : initializeApp(firebaseConfig))
+    : null;
+} catch (error) {
+  console.warn('Firebase initialization skipped:', error);
+  app = null;
+}
 
 export const db = app ? getFirestore(app) : null as any;
 export const auth = app ? getAuth(app) : null as any;
 export const googleProvider = new GoogleAuthProvider();
-
