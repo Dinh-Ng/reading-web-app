@@ -12,8 +12,17 @@ const firebaseConfig = {
   measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID,
 };
 
-const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
+// Only initialize Firebase if we have valid config and we're in the browser
+const shouldInitialize =
+  typeof window !== 'undefined' &&
+  firebaseConfig.apiKey &&
+  firebaseConfig.apiKey !== 'undefined';
 
-export const db = getFirestore(app);
-export const auth = getAuth(app);
+const app = shouldInitialize
+  ? (getApps().length ? getApp() : initializeApp(firebaseConfig))
+  : null;
+
+export const db = app ? getFirestore(app) : null as any;
+export const auth = app ? getAuth(app) : null as any;
 export const googleProvider = new GoogleAuthProvider();
+
