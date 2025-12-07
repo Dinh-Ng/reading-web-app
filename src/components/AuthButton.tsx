@@ -8,6 +8,10 @@ export default function AuthButton() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (!auth) {
+      setLoading(false);
+      return;
+    }
     const unsub = onAuthStateChanged(auth, (u) => {
       setUser(u);
       setLoading(false);
@@ -16,10 +20,12 @@ export default function AuthButton() {
   }, []);
 
   const handleLogin = async () => {
+    if (!auth) return;
     await signInWithPopup(auth, googleProvider);
   };
 
   const handleLogout = async () => {
+    if (!auth) return;
     await signOut(auth);
   };
 

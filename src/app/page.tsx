@@ -21,6 +21,10 @@ export default function Home() {
   useEffect(() => {
     const run = async () => {
       try {
+        if (!db) {
+          setLoading(false);
+          return;
+        }
         const snap = await getDocs(collection(db, "stories"));
         const items: Story[] = snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<Story, "id">) }));
         setStories(items);
@@ -32,12 +36,13 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
+    if (!auth) return;
     const unsub = onAuthStateChanged(auth, (u) => setUserId(u?.uid ?? null));
     return () => unsub();
   }, []);
 
   const createStory = async () => {
-    if (!userId) return;
+    if (!userId || !db) return;
     const title = newTitle.trim();
     if (!title) return;
 

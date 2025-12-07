@@ -32,6 +32,10 @@ export default function StoryPage() {
   useEffect(() => {
     const load = async () => {
       try {
+        if (!db) {
+          setLoading(false);
+          return;
+        }
         const ref = doc(db, "stories", id);
         const s = await getDoc(ref);
         if (s.exists()) {
@@ -58,6 +62,7 @@ export default function StoryPage() {
   }, [id]);
 
   useEffect(() => {
+    if (!auth) return;
     const unsub = onAuthStateChanged(auth, (u) => setUserId(u?.uid ?? null));
     return () => unsub();
   }, []);
@@ -82,7 +87,7 @@ export default function StoryPage() {
   };
 
   const saveStory = async () => {
-    if (!canManage || !story) return;
+    if (!canManage || !story || !db) return;
     const newTitle = titleInput.trim();
     if (!newTitle) return;
 
@@ -99,7 +104,7 @@ export default function StoryPage() {
   };
 
   const deleteStory = async () => {
-    if (!canManage || !story) return;
+    if (!canManage || !story || !db) return;
     if (!confirm("Bạn có chắc chắn muốn xóa truyện này?")) return;
 
     const storyRef = doc(db, "stories", story.id);
@@ -136,7 +141,7 @@ export default function StoryPage() {
   };
 
   const createChapter = async () => {
-    if (!canManage || !story) return;
+    if (!canManage || !story || !db) return;
     const title = chapterTitle.trim();
     const content = chapterContent.trim();
     if (!title || !content) return;
@@ -171,7 +176,7 @@ export default function StoryPage() {
   };
 
   const updateChapter = async () => {
-    if (!canManage || !story || !editingChapterId) return;
+    if (!canManage || !story || !editingChapterId || !db) return;
     const title = chapterTitle.trim();
     const content = chapterContent.trim();
     if (!title || !content) return;
@@ -200,7 +205,7 @@ export default function StoryPage() {
   };
 
   const deleteChapter = async (chapterId: string) => {
-    if (!canManage || !story) return;
+    if (!canManage || !story || !db) return;
     if (!confirm("Bạn có chắc chắn muốn xóa chương này?")) return;
 
     const chapterRef = doc(db, "stories", story.id, "chapters", chapterId);
