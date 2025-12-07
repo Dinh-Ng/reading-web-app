@@ -17,6 +17,10 @@ export default function ChapterPage() {
   useEffect(() => {
     const load = async () => {
       try {
+        if (!db) {
+          setLoading(false);
+          return;
+        }
         const storyRef = doc(db, "stories", id);
         const s = await getDoc(storyRef);
         if (s.exists()) setStory({ id: s.id, ...(s.data() as Omit<Story, "id">) });
