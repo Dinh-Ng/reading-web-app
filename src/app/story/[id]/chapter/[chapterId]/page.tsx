@@ -6,7 +6,7 @@ import { db } from "@/lib/firebase";
 import { collection, doc, getDoc, getDocs, orderBy, query, where } from "firebase/firestore";
 import type { Chapter, Story } from "@/types/story";
 import ChapterContent from "@/components/ChapterContent";
-import { saveReadingProgress } from "@/lib/reading-progress";
+import { saveReadingProgress, getReadingProgress } from "@/lib/reading-progress";
 
 export default function ChapterPage() {
   const { id, chapterId } = useParams<{ id: string; chapterId: string }>();
@@ -55,16 +55,53 @@ export default function ChapterPage() {
     load();
   }, [id, chapterId]);
 
-  // Save reading progress when chapter loads
+  // Save reading progress when chapter loads and on scroll
   useEffect(() => {
-    if (chapter && story) {
+    if (!chapter || !story) return;
+
+    // Save initial progress
+    const saveProgress = (scrollPos?: number) => {
       saveReadingProgress(id, {
         chapterId: chapter.id,
         chapterTitle: chapter.title,
         chapterIndex: chapter.index,
         timestamp: Date.now(),
+        scrollPosition: scrollPos ?? window.scrollY,
       });
+    };
+
+    // Save progress on mount
+    saveProgress(0);
+
+    // Restore scroll position if returning to same chapter
+    const savedProgress = getReadingProgress(id);
+    if (savedProgress && savedProgress.chapterId === chapter.id && savedProgress.scrollPosition) {
+      // Delay scroll restoration to ensure content is rendered
+      setTimeout(() => {
+        window.scrollTo({
+          top: savedProgress.scrollPosition,
+          behavior: 'smooth'
+        });
+      }, 100);
     }
+
+    // Save progress on scroll (debounced)
+    let scrollTimeout: NodeJS.Timeout;
+    const handleScroll = () => {
+      clearTimeout(scrollTimeout);
+      scrollTimeout = setTimeout(() => {
+        saveProgress();
+      }, 1000); // Save 1 second after user stops scrolling
+    };
+
+    window.addEventListener('scroll', handleScroll);
+
+    // Save progress before leaving page
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+      clearTimeout(scrollTimeout);
+      saveProgress();
+    };
   }, [chapter, story, id]);
 
   if (loading) {
