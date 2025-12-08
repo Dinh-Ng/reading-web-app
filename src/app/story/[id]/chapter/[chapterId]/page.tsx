@@ -59,6 +59,10 @@ export default function ChapterPage() {
   useEffect(() => {
     if (!chapter || !story) return;
 
+    // Get existing progress
+    const savedProgress = getReadingProgress(id);
+    const isReturningToSameChapter = savedProgress && savedProgress.chapterId === chapter.id;
+
     // Save initial progress
     const saveProgress = (scrollPos?: number) => {
       saveReadingProgress(id, {
@@ -70,12 +74,13 @@ export default function ChapterPage() {
       });
     };
 
-    // Save progress on mount
-    saveProgress(0);
+    // Only save position 0 if this is a NEW chapter (not returning to same one)
+    if (!isReturningToSameChapter) {
+      saveProgress(0);
+    }
 
     // Restore scroll position if returning to same chapter
-    const savedProgress = getReadingProgress(id);
-    if (savedProgress && savedProgress.chapterId === chapter.id && savedProgress.scrollPosition) {
+    if (isReturningToSameChapter && savedProgress.scrollPosition) {
       // Delay scroll restoration to ensure content is rendered
       setTimeout(() => {
         window.scrollTo({
