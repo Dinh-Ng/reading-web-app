@@ -79,17 +79,6 @@ export default function ChapterPage() {
       saveProgress(0);
     }
 
-    // Restore scroll position if returning to same chapter
-    if (isReturningToSameChapter && savedProgress.scrollPosition) {
-      // Delay scroll restoration to ensure content is rendered
-      setTimeout(() => {
-        window.scrollTo({
-          top: savedProgress.scrollPosition,
-          behavior: 'smooth'
-        });
-      }, 100);
-    }
-
     // Save progress on scroll (debounced)
     let scrollTimeout: NodeJS.Timeout;
     const handleScroll = () => {
@@ -108,6 +97,30 @@ export default function ChapterPage() {
       saveProgress();
     };
   }, [chapter, story, id]);
+
+  // Restore scroll position AFTER content is loaded
+  useEffect(() => {
+    if (!chapter || loading) return; // Wait until loading is complete
+
+    const savedProgress = getReadingProgress(id);
+    const isReturningToSameChapter = savedProgress && savedProgress.chapterId === chapter.id;
+
+    if (isReturningToSameChapter && savedProgress.scrollPosition) {
+      // Content is loaded, now we can safely scroll
+      const scrollToPosition = () => {
+        window.scrollTo({
+          top: savedProgress.scrollPosition!,
+          behavior: 'smooth'
+        });
+        console.log('✅ Scrolled to position:', savedProgress.scrollPosition);
+      };
+
+      // Use requestAnimationFrame + timeout for reliability
+      requestAnimationFrame(() => {
+        setTimeout(scrollToPosition, 500); // Wait for render
+      });
+    }
+  }, [chapter, loading, id]); // Triggers when chapter loads and loading becomes false
 
   if (loading) {
     return (
