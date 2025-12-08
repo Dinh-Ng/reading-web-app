@@ -6,6 +6,8 @@ import { auth, db } from "@/lib/firebase";
 import { collection, deleteDoc, doc, getDoc, getDocs, updateDoc, addDoc } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
 import type { Story, Chapter } from "@/types/story";
+import { getReadingProgress } from "@/lib/reading-progress";
+import type { ReadingProgress } from "@/types/reading-progress";
 
 export default function StoryPage() {
   const { id } = useParams<{ id: string }>();
@@ -28,6 +30,9 @@ export default function StoryPage() {
   const [chapterTitle, setChapterTitle] = useState("");
   const [chapterContent, setChapterContent] = useState("");
   const [chapterIndex, setChapterIndex] = useState("");
+
+  // Reading progress
+  const [readingProgress, setReadingProgress] = useState<ReadingProgress | null>(null);
 
   useEffect(() => {
     const load = async () => {
@@ -59,6 +64,12 @@ export default function StoryPage() {
       }
     };
     load();
+  }, [id]);
+
+  // Load reading progress
+  useEffect(() => {
+    const progress = getReadingProgress(id);
+    setReadingProgress(progress);
   }, [id]);
 
   useEffect(() => {
@@ -316,6 +327,38 @@ export default function StoryPage() {
           </div>
         </div>
 
+        {/* Continue Reading Section */}
+        {readingProgress && chapters.some(c => c.id === readingProgress.chapterId) && (
+          <div className="bg-gradient-to-r from-purple-600 via-pink-600 to-red-500 rounded-3xl shadow-xl p-8 mb-8 border border-purple-400 dark:border-purple-700 animate-slideUp" style={{ animationDelay: "0.05s" }}>
+            <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+              <div className="flex-1">
+                <div className="flex items-center gap-2 mb-2">
+                  <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <span className="text-sm font-medium text-white/90">Tiếp tục đọc</span>
+                </div>
+                <h3 className="text-xl font-bold text-white mb-1">
+                  {readingProgress.chapterIndex != null ? `Chương ${readingProgress.chapterIndex}` : 'Chương'}: {readingProgress.chapterTitle}
+                </h3>
+                <p className="text-sm text-white/80">
+                  Lần đọc cuối: {new Date(readingProgress.timestamp).toLocaleDateString('vi-VN')}
+                </p>
+              </div>
+              <Link
+                href={`/story/${story.id}/chapter/${readingProgress.chapterId}`}
+                className="flex items-center gap-2 px-6 py-3 rounded-xl bg-white text-purple-600 font-semibold shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 whitespace-nowrap"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                Tiếp tục đọc
+              </Link>
+            </div>
+          </div>
+        )}
+
         {/* Chapters Section */}
         <div className="bg-white dark:bg-zinc-900 rounded-3xl shadow-xl p-8 border border-zinc-200 dark:border-zinc-800 animate-slideUp" style={{ animationDelay: "0.1s" }}>
           <div className="flex items-center justify-between mb-6">
@@ -369,9 +412,16 @@ export default function StoryPage() {
                       <span className="text-white font-bold text-lg">{c.index ?? index + 1}</span>
                     </div>
                     <div className="flex-1 min-w-0">
-                      <h3 className="text-base font-semibold text-zinc-900 dark:text-zinc-100 group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors truncate">
-                        {c.title}
-                      </h3>
+                      <div className="flex items-center gap-2">
+                        <h3 className="text-base font-semibold text-zinc-900 dark:text-zinc-100 group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors truncate">
+                          {c.title}
+                        </h3>
+                        {readingProgress && readingProgress.chapterId === c.id && (
+                          <span className="flex-shrink-0 px-2 py-0.5 rounded-full bg-gradient-to-r from-purple-500 to-pink-500 text-white text-xs font-semibold">
+                            Đang đọc
+                          </span>
+                        )}
+                      </div>
                     </div>
                     <svg className="w-5 h-5 text-zinc-400 group-hover:text-purple-600 dark:group-hover:text-purple-400 transform group-hover:translate-x-1 transition-all flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />

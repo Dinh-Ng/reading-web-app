@@ -6,6 +6,7 @@ import { db } from "@/lib/firebase";
 import { collection, doc, getDoc, getDocs, orderBy, query, where } from "firebase/firestore";
 import type { Chapter, Story } from "@/types/story";
 import ChapterContent from "@/components/ChapterContent";
+import { saveReadingProgress } from "@/lib/reading-progress";
 
 export default function ChapterPage() {
   const { id, chapterId } = useParams<{ id: string; chapterId: string }>();
@@ -53,6 +54,18 @@ export default function ChapterPage() {
     };
     load();
   }, [id, chapterId]);
+
+  // Save reading progress when chapter loads
+  useEffect(() => {
+    if (chapter && story) {
+      saveReadingProgress(id, {
+        chapterId: chapter.id,
+        chapterTitle: chapter.title,
+        chapterIndex: chapter.index,
+        timestamp: Date.now(),
+      });
+    }
+  }, [chapter, story, id]);
 
   if (loading) {
     return (
