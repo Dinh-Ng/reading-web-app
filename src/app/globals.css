@@ -238,3 +238,33 @@ body {
   outline: 2px solid var(--primary);
   outline-offset: 2px;
 }
+
+/* Focus Styles */
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+/* Cursor Styles */
+button,
+a,
+[role="button"],
+.cursor-pointer {
+  cursor: pointer;
+}
+
+button:disabled,
+a:disabled,
+[aria-disabled="true"] {
+  cursor: not-allowed;
+}
+
+/* Ensure all interactive elements have pointer cursor */
+.group:hover,
+[onclick],
+label[for] {
+  cursor: pointer;
+}
