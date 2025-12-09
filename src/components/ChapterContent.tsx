@@ -35,7 +35,7 @@ export default function ChapterContent({ content }: ChapterContentProps) {
 
       if (line.trim()) {
         elements.push(
-          <p key={index} className="mb-4">
+          <p key={index} className="mb-4 indent-8">
             {processedLine}
           </p>
         );
@@ -52,23 +52,33 @@ export default function ChapterContent({ content }: ChapterContentProps) {
     const parts: (string | ReactNode)[] = [];
     let currentIndex = 0;
 
-    // Regex to find **text** pattern
-    const boldPattern = /\*\*(.*?)\*\*/g;
+    // Combined regex to find both **text** (bold) and "text" (italic dialogue)
+    const formattingPattern = /(\*\*(.*?)\*\*)|("(.*?)")/g;
     let match;
     let lastIndex = 0;
 
-    while ((match = boldPattern.exec(line)) !== null) {
+    while ((match = formattingPattern.exec(line)) !== null) {
       // Add text before the match
       if (match.index > lastIndex) {
         parts.push(line.substring(lastIndex, match.index));
       }
 
-      // Add the bold text (without uppercase)
-      parts.push(
-        <span key={`bold-${currentIndex++}`} className="font-bold">
-          {match[1]}
-        </span>
-      );
+      // Check which pattern matched
+      if (match[1]) {
+        // **bold** pattern matched
+        parts.push(
+          <span key={`bold-${currentIndex++}`} className="font-bold">
+            {match[2]}
+          </span>
+        );
+      } else if (match[3]) {
+        // "dialogue" pattern matched
+        parts.push(
+          <span key={`italic-${currentIndex++}`} className="italic">
+            "{match[4]}"
+          </span>
+        );
+      }
 
       lastIndex = match.index + match[0].length;
     }
