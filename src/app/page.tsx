@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { auth, db } from "@/lib/firebase";
-import { addDoc, collection, getDocs, serverTimestamp } from "firebase/firestore";
+import { addDoc, collection, getDocs, serverTimestamp, getCountFromServer } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
 import type { Story } from "@/types/story";
 
@@ -11,6 +11,7 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [chapterCounts, setChapterCounts] = useState<Map<string, number>>(new Map());
 
   // Form fields
   const [newTitle, setNewTitle] = useState("");
@@ -28,6 +29,21 @@ export default function Home() {
         const snap = await getDocs(collection(db, "stories"));
         const items: Story[] = snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<Story, "id">) }));
         setStories(items);
+
+        // Fetch chapter counts for each story
+        const counts = new Map<string, number>();
+        await Promise.all(
+          items.map(async (story) => {
+            try {
+              const chaptersRef = collection(db, "stories", story.id, "chapters");
+              const countSnapshot = await getCountFromServer(chaptersRef);
+              counts.set(story.id, countSnapshot.data().count);
+            } catch (error) {
+              counts.set(story.id, 0);
+            }
+          })
+        );
+        setChapterCounts(counts);
       } finally {
         setLoading(false);
       }
@@ -126,31 +142,25 @@ export default function Home() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {stories.map((s, index) => (
-              <Link
-                key={s.id}
-                href={`/story/${s.id}`}
-                className="group relative bg-white dark:bg-zinc-900 rounded-2xl shadow-md hover:shadow-xl transition-all duration-300 overflow-hidden border border-zinc-200 dark:border-zinc-800 hover:border-purple-300 dark:hover:border-purple-700 hover:-translate-y-1 animate-slideUp"
-                style={{ animationDelay: `${index * 0.05}s` }}
-              >
-                {/* Gradient overlay */}
-                <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 to-pink-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+            <Link
+              key={s.id}
+              href={`/story/${s.id}`}
+              className="group relative bg-white dark:bg-zinc-900 rounded-2xl shadow-md hover:shadow-xl transition-all duration-300 overflow-hidden border border-zinc-200 dark:border-zinc-800 hover:border-purple-300 dark:hover:border-purple-700 hover:-translate-y-1 animate-slideUp"
+              style={{ animationDelay: `${index * 0.05}s` }}
+            >
+              {/* Gradient overlay */}
+              <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 to-pink-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
 
-                {/* Cover placeholder */}
-                <div className="relative h-48 bg-gradient-to-br from-purple-400 via-pink-400 to-red-400 flex items-center justify-center">
-                  <svg className="w-16 h-16 text-white/80" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-                  </svg>
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent"></div>
-                </div>
+              {/* Content */}
+              <div className="relative p-6">
+                <h3 className="text-xl font-bold text-zinc-900 dark:text-zinc-100 mb-3 line-clamp-2 group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors">
+                  {s.title}
+                </h3>
 
-                {/* Content */}
-                <div className="relative p-5">
-                  <h3 className="text-lg font-bold text-zinc-900 dark:text-zinc-100 mb-2 line-clamp-2 group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors">
-                    {s.title}
-                  </h3>
+                <div className="space-y-2 mb-4">
                   {s.author && (
-                    <div className="flex items-center gap-2 text-sm text-zinc-600 dark:text-zinc-400 mb-1">
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <div className="flex items-center gap-2 text-sm text-zinc-600 dark:text-zinc-400">
+                      <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                       </svg>
                       <span className="truncate">{s.author}</span>
@@ -158,26 +168,41 @@ export default function Home() {
                   )}
                   {s.source && (
                     <div className="flex items-center gap-2 text-sm text-zinc-600 dark:text-zinc-400">
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
                       </svg>
                       <span className="truncate">{s.source}</span>
                     </div>
                   )}
 
-                  {/* Read button */}
-                  <div className="mt-4 pt-4 border-t border-zinc-200 dark:border-zinc-800">
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-purple-600 dark:text-purple-400 font-medium group-hover:underline">
-                        Đọc truyện
-                      </span>
-                      <svg className="w-5 h-5 text-purple-600 dark:text-purple-400 transform group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                      </svg>
-                    </div>
+                  {/* Chapter count */}
+                  <div className="flex items-center gap-2 text-sm text-zinc-600 dark:text-zinc-400">
+                    <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                    </svg>
+                    <span>
+                      {chapterCounts.get(s.id) !== undefined
+                        ? chapterCounts.get(s.id) === 0
+                          ? "Chưa có chương"
+                          : `${chapterCounts.get(s.id)} chương`
+                        : "Đang tải..."}
+                    </span>
                   </div>
                 </div>
-              </Link>
+
+                {/* Read button */}
+                <div className="pt-4 border-t border-zinc-200 dark:border-zinc-800">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-purple-600 dark:text-purple-400 font-medium group-hover:underline">
+                      Đọc truyện
+                    </span>
+                    <svg className="w-5 h-5 text-purple-600 dark:text-purple-400 transform group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </div>
+                </div>
+              </div>
+            </Link>
             ))}
           </div>
         )}
