@@ -4,7 +4,10 @@ import { useEffect, useState } from "react";
 import { auth, db } from "@/lib/firebase";
 import { addDoc, collection, getDocs, serverTimestamp, getCountFromServer } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
+
 import type { Story } from "@/types/story";
+import { getAllReadingProgress } from "@/lib/reading-progress";
+import type { ReadingProgress } from "@/types/reading-progress";
 
 export default function Home() {
   const [stories, setStories] = useState<Story[]>([]);
@@ -12,6 +15,8 @@ export default function Home() {
   const [userId, setUserId] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [chapterCounts, setChapterCounts] = useState<Map<string, number>>(new Map());
+  const [readingProgress, setReadingProgress] = useState<Record<string, ReadingProgress>>({});
+  const [sortBy, setSortBy] = useState<'default' | 'lastRead'>('default');
 
   // Form fields
   const [newTitle, setNewTitle] = useState("");
@@ -55,6 +60,9 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
+    // Load reading progress
+    setReadingProgress(getAllReadingProgress());
+
     if (!auth) return;
     const unsub = onAuthStateChanged(auth, (u) => setUserId(u?.uid ?? null));
     return () => unsub();
@@ -97,6 +105,33 @@ export default function Home() {
     setNewAuthorLink("");
     setNewSource("");
   };
+
+  const formatTimeAgo = (timestamp: number) => {
+    const now = Date.now();
+    const diffInSeconds = Math.floor((now - timestamp) / 1000);
+
+    if (diffInSeconds < 60) return "Vừa xong";
+
+    const diffInMinutes = Math.floor(diffInSeconds / 60);
+    if (diffInMinutes < 60) return `${diffInMinutes} phút trước`;
+
+    const diffInHours = Math.floor(diffInMinutes / 60);
+    if (diffInHours < 24) return `${diffInHours} giờ trước`;
+
+    const diffInDays = Math.floor(diffInHours / 24);
+    if (diffInDays < 30) return `${diffInDays} ngày trước`;
+
+    return "Lâu rồi";
+  };
+
+  const sortedStories = [...stories].sort((a, b) => {
+    if (sortBy === 'lastRead') {
+      const timeA = readingProgress[a.id]?.timestamp || 0;
+      const timeB = readingProgress[b.id]?.timestamp || 0;
+      return timeB - timeA;
+    }
+    return 0; // Default order
+  });
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-zinc-50 via-purple-50/30 to-pink-50/30 dark:from-zinc-950 dark:via-purple-950/20 dark:to-pink-950/20">
@@ -143,70 +178,106 @@ export default function Home() {
             </p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {stories.map((s, index) => (
-            <Link
-              key={s.id}
-              href={`/story/${s.id}`}
-              className="group relative bg-white dark:bg-zinc-900 rounded-2xl shadow-md hover:shadow-xl transition-all duration-300 overflow-hidden border border-zinc-200 dark:border-zinc-800 hover:border-purple-300 dark:hover:border-purple-700 hover:-translate-y-1 animate-slideUp"
-              style={{ animationDelay: `${index * 0.05}s` }}
-            >
-              {/* Gradient overlay */}
-              <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 to-pink-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+          <div className="space-y-6">
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setSortBy('default')}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  sortBy === 'default'
+                    ? 'bg-purple-600 text-white shadow-md'
+                    : 'bg-white dark:bg-zinc-900/50 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800'
+                }`}
+              >
+                Mặc định
+              </button>
+              <button
+                onClick={() => setSortBy('lastRead')}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  sortBy === 'lastRead'
+                    ? 'bg-purple-600 text-white shadow-md'
+                    : 'bg-white dark:bg-zinc-900/50 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800'
+                }`}
+              >
+                Mới đọc gần đây
+              </button>
+            </div>
 
-              {/* Content */}
-              <div className="relative p-6">
-                <h3 className="text-xl font-bold text-zinc-900 dark:text-zinc-100 mb-3 line-clamp-2 group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors">
-                  {s.title}
-                </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {sortedStories.map((s, index) => (
+              <Link
+                key={s.id}
+                href={`/story/${s.id}`}
+                className="group relative bg-white dark:bg-zinc-900 rounded-2xl shadow-md hover:shadow-xl transition-all duration-300 overflow-hidden border border-zinc-200 dark:border-zinc-800 hover:border-purple-300 dark:hover:border-purple-700 hover:-translate-y-1 animate-slideUp"
+                style={{ animationDelay: `${index * 0.05}s` }}
+              >
+                {/* Gradient overlay */}
+                <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 to-pink-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
 
-                <div className="space-y-2 mb-4">
-                  {s.author && (
+                {/* Content */}
+                <div className="relative p-6">
+                  {/* Highlight for recently read */}
+                  {readingProgress[s.id] && (
+                     <div className="absolute top-0 right-0 p-3">
+                         <div className="w-2 h-2 rounded-full bg-purple-500 animate-pulse"></div>
+                     </div>
+                  )}
+
+                  <h3 className="text-xl font-bold text-zinc-900 dark:text-zinc-100 mb-3 line-clamp-2 group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors">
+                    {s.title}
+                  </h3>
+
+                  <div className="space-y-2 mb-4">
+                    {s.author && (
+                      <div className="flex items-center gap-2 text-sm text-zinc-600 dark:text-zinc-400">
+                        <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                        </svg>
+                        <span className="truncate">{s.author}</span>
+                      </div>
+                    )}
+
+                    {/* Chapter count */}
                     <div className="flex items-center gap-2 text-sm text-zinc-600 dark:text-zinc-400">
                       <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
                       </svg>
-                      <span className="truncate">{s.author}</span>
+                      <span>
+                        {chapterCounts.get(s.id) !== undefined
+                          ? chapterCounts.get(s.id) === 0
+                            ? "Chưa có chương"
+                            : `${chapterCounts.get(s.id)} chương`
+                          : "Đang tải..."}
+                      </span>
                     </div>
-                  )}
-                  {s.source && (
-                    <div className="flex items-center gap-2 text-sm text-zinc-600 dark:text-zinc-400">
-                      <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
-                      </svg>
-                      <span className="truncate">{s.source}</span>
-                    </div>
-                  )}
 
-                  {/* Chapter count */}
-                  <div className="flex items-center gap-2 text-sm text-zinc-600 dark:text-zinc-400">
-                    <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-                    </svg>
-                    <span>
-                      {chapterCounts.get(s.id) !== undefined
-                        ? chapterCounts.get(s.id) === 0
-                          ? "Chưa có chương"
-                          : `${chapterCounts.get(s.id)} chương`
-                        : "Đang tải..."}
-                    </span>
+                    {/* Last Read */}
+                    {readingProgress[s.id] && (
+                        <div className="flex items-center gap-2 text-sm text-purple-600 dark:text-purple-400 font-medium">
+                            <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <span>
+                                Đọc {formatTimeAgo(readingProgress[s.id].timestamp)}
+                            </span>
+                        </div>
+                    )}
+                  </div>
+
+                  {/* Read button */}
+                  <div className="pt-4 border-t border-zinc-200 dark:border-zinc-800">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-purple-600 dark:text-purple-400 font-medium group-hover:underline">
+                        {readingProgress[s.id] ? "Đọc tiếp" : "Đọc truyện"}
+                      </span>
+                      <svg className="w-5 h-5 text-purple-600 dark:text-purple-400 transform group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                      </svg>
+                    </div>
                   </div>
                 </div>
-
-                {/* Read button */}
-                <div className="pt-4 border-t border-zinc-200 dark:border-zinc-800">
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-purple-600 dark:text-purple-400 font-medium group-hover:underline">
-                      Đọc truyện
-                    </span>
-                    <svg className="w-5 h-5 text-purple-600 dark:text-purple-400 transform group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                    </svg>
-                  </div>
-                </div>
-              </div>
-            </Link>
+              </Link>
             ))}
+            </div>
           </div>
         )}
       </main>
