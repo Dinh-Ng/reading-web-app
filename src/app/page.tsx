@@ -31,19 +31,21 @@ export default function Home() {
         setStories(items);
 
         // Fetch chapter counts for each story
-        const counts = new Map<string, number>();
-        await Promise.all(
-          items.map(async (story) => {
-            try {
-              const chaptersRef = collection(db, "stories", story.id, "chapters");
-              const countSnapshot = await getCountFromServer(chaptersRef);
-              counts.set(story.id, countSnapshot.data().count);
-            } catch (error) {
-              counts.set(story.id, 0);
-            }
-          })
-        );
-        setChapterCounts(counts);
+        if (db) {
+          const counts = new Map<string, number>();
+          await Promise.all(
+            items.map(async (story) => {
+              try {
+                const chaptersRef = collection(db, "stories", story.id, "chapters");
+                const countSnapshot = await getCountFromServer(chaptersRef);
+                counts.set(story.id, countSnapshot.data().count);
+              } catch (error) {
+                counts.set(story.id, 0);
+              }
+            })
+          );
+          setChapterCounts(counts);
+        }
       } finally {
         setLoading(false);
       }
