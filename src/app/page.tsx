@@ -32,11 +32,12 @@ export default function Home() {
 
         // Fetch chapter counts for each story
         if (db) {
+          const firestore = db; // Create local constant for type safety
           const counts = new Map<string, number>();
           await Promise.all(
             items.map(async (story) => {
               try {
-                const chaptersRef = collection(db, "stories", story.id, "chapters");
+                const chaptersRef = collection(firestore, "stories", story.id, "chapters");
                 const countSnapshot = await getCountFromServer(chaptersRef);
                 counts.set(story.id, countSnapshot.data().count);
               } catch (error) {
