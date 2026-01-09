@@ -30,6 +30,7 @@ export default function StoryPage() {
   const [chapterTitle, setChapterTitle] = useState("");
   const [chapterContent, setChapterContent] = useState("");
   const [chapterIndex, setChapterIndex] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Reading progress
   const [readingProgress, setReadingProgress] = useState<ReadingProgress | null>(null);
@@ -149,70 +150,85 @@ export default function StoryPage() {
     setChapterContent("");
     setChapterIndex("");
     setEditingChapterId(null);
+    setIsSubmitting(false);
   };
 
   const createChapter = async () => {
-    if (!canManage || !story || !db) return;
+    if (!canManage || !story || !db || isSubmitting) return;
     const title = chapterTitle.trim();
     const content = chapterContent.trim();
     if (!title || !content) return;
 
-    let index: number;
-    if (chapterIndex.trim()) {
-      index = parseInt(chapterIndex);
-    } else {
-      const maxIndex = chapters.reduce((max, ch) => {
-        const idx = ch.index ?? -1;
-        return idx > max ? idx : max;
-      }, -1);
-      index = maxIndex + 1;
+    setIsSubmitting(true);
+    try {
+      let index: number;
+      if (chapterIndex.trim()) {
+        index = parseInt(chapterIndex);
+      } else {
+        const maxIndex = chapters.reduce((max, ch) => {
+          const idx = ch.index ?? -1;
+          return idx > max ? idx : max;
+        }, -1);
+        index = maxIndex + 1;
+      }
+
+      const chapterData = { title, content, index };
+      const chaptersRef = collection(db, "stories", story.id, "chapters");
+      await addDoc(chaptersRef, chapterData);
+
+      const snap = await getDocs(chaptersRef);
+      const list: Chapter[] = snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<Chapter, "id">) }));
+      list.sort((a, b) => {
+        const ai = a.index ?? Number.MAX_SAFE_INTEGER;
+        const bi = b.index ?? Number.MAX_SAFE_INTEGER;
+        if (ai !== bi) return ai - bi;
+        const at = a.title?.toString() ?? "";
+        const bt = b.title?.toString() ?? "";
+        return at.localeCompare(bt);
+      });
+      setChapters(list);
+      closeChapterModal();
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsSubmitting(false);
     }
-
-    const chapterData = { title, content, index };
-    const chaptersRef = collection(db, "stories", story.id, "chapters");
-    await addDoc(chaptersRef, chapterData);
-
-    const snap = await getDocs(chaptersRef);
-    const list: Chapter[] = snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<Chapter, "id">) }));
-    list.sort((a, b) => {
-      const ai = a.index ?? Number.MAX_SAFE_INTEGER;
-      const bi = b.index ?? Number.MAX_SAFE_INTEGER;
-      if (ai !== bi) return ai - bi;
-      const at = a.title?.toString() ?? "";
-      const bt = b.title?.toString() ?? "";
-      return at.localeCompare(bt);
-    });
-    setChapters(list);
-    closeChapterModal();
   };
 
   const updateChapter = async () => {
-    if (!canManage || !story || !editingChapterId || !db) return;
+    if (!canManage || !story || !editingChapterId || !db || isSubmitting) return;
     const title = chapterTitle.trim();
     const content = chapterContent.trim();
     if (!title || !content) return;
 
-    const updates: Partial<Chapter> = { title, content };
-    if (chapterIndex.trim()) {
-      updates.index = parseInt(chapterIndex);
+    setIsSubmitting(true);
+    try {
+      const updates: Partial<Chapter> = { title, content };
+      if (chapterIndex.trim()) {
+        updates.index = parseInt(chapterIndex);
+      }
+
+      const chapterRef = doc(db, "stories", story.id, "chapters", editingChapterId);
+      await updateDoc(chapterRef, updates);
+
+      const chaptersRef = collection(db, "stories", story.id, "chapters");
+      const snap = await getDocs(chaptersRef);
+      const list: Chapter[] = snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<Chapter, "id">) }));
+      list.sort((a, b) => {
+        const ai = a.index ?? Number.MAX_SAFE_INTEGER;
+        const bi = b.index ?? Number.MAX_SAFE_INTEGER;
+        if (ai !== bi) return ai - bi;
+        const at = a.title?.toString() ?? "";
+        const bt = b.title?.toString() ?? "";
+        return at.localeCompare(bt);
+      });
+      setChapters(list);
+      closeChapterModal();
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsSubmitting(false);
     }
-
-    const chapterRef = doc(db, "stories", story.id, "chapters", editingChapterId);
-    await updateDoc(chapterRef, updates);
-
-    const chaptersRef = collection(db, "stories", story.id, "chapters");
-    const snap = await getDocs(chaptersRef);
-    const list: Chapter[] = snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<Chapter, "id">) }));
-    list.sort((a, b) => {
-      const ai = a.index ?? Number.MAX_SAFE_INTEGER;
-      const bi = b.index ?? Number.MAX_SAFE_INTEGER;
-      if (ai !== bi) return ai - bi;
-      const at = a.title?.toString() ?? "";
-      const bt = b.title?.toString() ?? "";
-      return at.localeCompare(bt);
-    });
-    setChapters(list);
-    closeChapterModal();
   };
 
   const deleteChapter = async (chapterId: string) => {
@@ -635,10 +651,20 @@ export default function StoryPage() {
               </button>
               <button
                 onClick={chapterMode === "create" ? createChapter : updateChapter}
-                disabled={!chapterTitle.trim() || !chapterContent.trim()}
+                disabled={!chapterTitle.trim() || !chapterContent.trim() || isSubmitting}
                 className="flex-1 rounded-xl bg-gradient-to-r from-green-600 to-emerald-600 px-5 py-3 text-sm font-semibold text-white shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all hover:scale-105 disabled:hover:scale-100"
               >
-                {chapterMode === "create" ? "Thêm chương" : "Lưu thay đổi"}
+                {isSubmitting ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Đang xử lý...
+                  </span>
+                ) : (
+                   chapterMode === "create" ? "Thêm chương" : "Lưu thay đổi"
+                )}
               </button>
             </div>
           </div>
