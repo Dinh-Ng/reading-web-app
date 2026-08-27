@@ -111,7 +111,7 @@ export default function ReadingSettings({
                 Xem trước:
               </p>
               <p
-                className="text-zinc-800 dark:text-zinc-200 font-serif leading-relaxed"
+                className="text-zinc-800 dark:text-zinc-200 reading-content leading-relaxed"
                 style={{ fontSize: `${fontSize}px` }}
               >
                 Đây là đoạn văn mẫu để xem trước kích thước chữ.
