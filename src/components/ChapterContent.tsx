@@ -15,7 +15,10 @@ export default function ChapterContent({ content }: ChapterContentProps) {
   useEffect(() => {
     const savedFontSize = localStorage.getItem("reading-font-size");
     if (savedFontSize) {
-      setFontSize(Number(savedFontSize));
+      const parsed = Number(savedFontSize);
+      if (!isNaN(parsed) && parsed >= 14 && parsed <= 26) {
+        setFontSize(parsed);
+      }
     }
   }, []);
 
@@ -24,75 +27,32 @@ export default function ChapterContent({ content }: ChapterContentProps) {
     setFontSize(size);
     localStorage.setItem("reading-font-size", size.toString());
   };
-  const parseContent = (text: string) => {
-    const lines = text.split('\n');
-    const elements: ReactNode[] = [];
-
-    lines.forEach((line, index) => {
-      // Check for horizontal divider (---)
-      if (line.trim() === '---') {
-        elements.push(
-          <hr key={index} className="my-8 border-t-2 border-zinc-300 dark:border-zinc-700" />
-        );
-        return;
-      }
-
-      // Check for header (##)
-      if (line.trim().startsWith('##')) {
-        const headerText = line.trim().substring(2).trim();
-        elements.push(
-          <h2 key={index} className="text-2xl font-bold text-zinc-900 dark:text-white mt-8 mb-4">
-            {headerText}
-          </h2>
-        );
-        return;
-      }
-
-      // Process line for **text** (uppercase)
-      const processedLine = processInlineFormatting(line);
-
-      if (line.trim()) {
-        elements.push(
-          <p key={index} className="mb-4 indent-8">
-            {processedLine}
-          </p>
-        );
-      } else {
-        // Empty line - add spacing
-        elements.push(<div key={index} className="h-4" />);
-      }
-    });
-
-    return elements;
-  };
 
   const processInlineFormatting = (line: string) => {
     const parts: (string | ReactNode)[] = [];
     let currentIndex = 0;
 
-    // Combined regex to find both **text** (bold) and "text" (italic dialogue)
+    // Combined regex to find both **text** (bold) and "text" (dialogue)
     const formattingPattern = /(\*\*(.*?)\*\*)|("(.*?)")/g;
     let match;
     let lastIndex = 0;
 
     while ((match = formattingPattern.exec(line)) !== null) {
-      // Add text before the match
       if (match.index > lastIndex) {
         parts.push(line.substring(lastIndex, match.index));
       }
 
-      // Check which pattern matched
       if (match[1]) {
         // **bold** pattern matched
         parts.push(
-          <span key={`bold-${currentIndex++}`} className="font-bold">
+          <strong key={`bold-${currentIndex++}`} className="font-bold text-zinc-950 dark:text-white">
             {match[2]}
-          </span>
+          </strong>
         );
       } else if (match[3]) {
         // "dialogue" pattern matched
         parts.push(
-          <span key={`italic-${currentIndex++}`} className="italic">
+          <span key={`dialogue-${currentIndex++}`} className="text-zinc-900 dark:text-zinc-100 font-medium">
             "{match[4]}"
           </span>
         );
@@ -101,7 +61,6 @@ export default function ChapterContent({ content }: ChapterContentProps) {
       lastIndex = match.index + match[0].length;
     }
 
-    // Add remaining text
     if (lastIndex < line.length) {
       parts.push(line.substring(lastIndex));
     }
@@ -109,10 +68,65 @@ export default function ChapterContent({ content }: ChapterContentProps) {
     return parts.length > 0 ? parts : line;
   };
 
+  const parseContent = (text: string) => {
+    if (!text) return null;
+    const lines = text.split('\n');
+    const elements: ReactNode[] = [];
+
+    lines.forEach((rawLine, index) => {
+      const line = rawLine.trim();
+
+      // Check for horizontal divider (---)
+      if (line === '---' || line === '***' || line === '___') {
+        elements.push(
+          <div key={`divider-${index}`} className="my-8 sm:my-10 flex items-center justify-center gap-3">
+            <span className="h-px bg-zinc-200 dark:bg-zinc-800 flex-1 max-w-[80px]" />
+            <span className="text-zinc-400 dark:text-zinc-600 text-xs tracking-widest">✦ ✦ ✦</span>
+            <span className="h-px bg-zinc-200 dark:bg-zinc-800 flex-1 max-w-[80px]" />
+          </div>
+        );
+        return;
+      }
+
+      // Check for header (##)
+      if (line.startsWith('##')) {
+        const headerText = line.replace(/^#+\s*/, '');
+        elements.push(
+          <h2 key={`h2-${index}`} className="text-xl sm:text-2xl font-bold text-zinc-900 dark:text-white mt-8 mb-4 tracking-tight">
+            {headerText}
+          </h2>
+        );
+        return;
+      }
+
+      // Check for quote/note (> )
+      if (line.startsWith('>')) {
+        const quoteText = line.replace(/^>\s*/, '');
+        elements.push(
+          <blockquote key={`quote-${index}`} className="border-l-4 border-purple-500 pl-4 py-1.5 my-4 italic text-zinc-600 dark:text-zinc-400 bg-purple-50/40 dark:bg-purple-950/20 rounded-r-xl">
+            {processInlineFormatting(quoteText)}
+          </blockquote>
+        );
+        return;
+      }
+
+      if (line) {
+        const processedLine = processInlineFormatting(rawLine.trim());
+        elements.push(
+          <p key={`p-${index}`} className="mb-5 sm:mb-6 text-justify leading-relaxed">
+            {processedLine}
+          </p>
+        );
+      }
+    });
+
+    return elements;
+  };
+
   return (
     <div className="relative">
       <article
-        className="reading-content text-zinc-800 dark:text-zinc-200"
+        className="reading-content text-zinc-800 dark:text-zinc-200 select-text"
         style={{ fontSize: `${fontSize}px` }}
       >
         {parseContent(content)}

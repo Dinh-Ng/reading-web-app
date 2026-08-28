@@ -226,27 +226,82 @@ body {
 
 /* Reading Typography */
 .reading-content {
-  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   font-size: 18px;
   line-height: 1.75;
   letter-spacing: 0.01em;
   color: var(--foreground);
   word-break: break-word;
   overflow-wrap: break-word;
+  text-rendering: optimizeLegibility;
 }
 
-/* Focus Styles */
+.reading-content p {
+  margin-bottom: 1.25rem;
+  line-height: inherit;
+}
+
+.reading-content p:last-child {
+  margin-bottom: 0;
+}
+
+/* Range Slider Styling */
+.reading-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 8px;
+  border-radius: 9999px;
+  outline: none;
+  transition: background 0.2s ease;
+}
+
+.reading-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #7c3aed;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(124, 58, 237, 0.4), 0 0 0 2px rgba(255, 255, 255, 0.8);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.reading-slider::-webkit-slider-thumb:hover,
+.reading-slider::-webkit-slider-thumb:active {
+  transform: scale(1.15);
+  box-shadow: 0 4px 14px rgba(124, 58, 237, 0.6), 0 0 0 3px rgba(255, 255, 255, 1);
+}
+
+.reading-slider::-moz-range-thumb {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #7c3aed;
+  cursor: pointer;
+  border: 2px solid rgba(255, 255, 255, 0.8);
+  box-shadow: 0 2px 8px rgba(124, 58, 237, 0.4);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.reading-slider::-moz-range-thumb:hover,
+.reading-slider::-moz-range-thumb:active {
+  transform: scale(1.15);
+  box-shadow: 0 4px 14px rgba(124, 58, 237, 0.6);
+}
+
+/* Focus and Interactive Styles */
 *:focus-visible {
   outline: 2px solid var(--primary);
   outline-offset: 2px;
 }
 
-/* Focus Styles */
 button:focus-visible,
 a:focus-visible,
 input:focus-visible,
 textarea:focus-visible {
-  outline: 2px solid var(--primary);
+  outline: 2px solid #9333ea;
   outline-offset: 2px;
 }
 
@@ -256,6 +311,7 @@ a,
 [role="button"],
 .cursor-pointer {
   cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
 }
 
 button:disabled,
@@ -264,7 +320,7 @@ a:disabled,
   cursor: not-allowed;
 }
 
-/* Ensure all interactive elements have pointer cursor */
+/* Safe interactive elements */
 .group:hover,
 [onclick],
 label[for] {
