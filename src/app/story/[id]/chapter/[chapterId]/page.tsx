@@ -279,7 +279,7 @@ export default function ChapterPage() {
               </div>
               <div className="flex-1 min-w-0 text-left">
                 <div className="text-[11px] font-semibold tracking-wider text-zinc-400 dark:text-zinc-500 uppercase mb-0.5">Chương trước</div>
-                <div className="text-sm font-bold text-zinc-900 dark:text-white truncate group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors">
+                <div className="text-sm font-bold text-zinc-900 dark:text-white line-clamp-2 break-words group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors">
                   {prevChapter.title}
                 </div>
               </div>
@@ -297,7 +297,7 @@ export default function ChapterPage() {
             >
               <div className="flex-1 min-w-0 text-left sm:text-right">
                 <div className="text-[11px] font-semibold tracking-wider text-white/80 uppercase mb-0.5">Chương sau</div>
-                <div className="text-sm font-bold truncate">
+                <div className="text-sm font-bold line-clamp-2 break-words">
                   {nextChapter.title}
                 </div>
               </div>
