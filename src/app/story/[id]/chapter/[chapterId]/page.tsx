@@ -120,7 +120,23 @@ export default function ChapterPage() {
         setTimeout(scrollToPosition, 500); // Wait for render
       });
     }
-  }, [chapter, loading, id]); // Triggers when chapter loads and loading becomes false
+  }, [chapter, loading, id]);
+
+  const [readingPercent, setReadingPercent] = useState(0);
+
+  // Calculate scroll progress percentage
+  useEffect(() => {
+    const handleScrollProgress = () => {
+      const totalHeight = document.documentElement.scrollHeight - window.innerHeight;
+      if (totalHeight > 0) {
+        const currentProgress = (window.scrollY / totalHeight) * 100;
+        setReadingPercent(Math.min(100, Math.max(0, currentProgress)));
+      }
+    };
+
+    window.addEventListener("scroll", handleScrollProgress, { passive: true });
+    return () => window.removeEventListener("scroll", handleScrollProgress);
+  }, []);
 
   if (loading) {
     return (
@@ -150,22 +166,6 @@ export default function ChapterPage() {
       </div>
     );
   }
-
-  const [readingPercent, setReadingPercent] = useState(0);
-
-  // Calculate scroll progress percentage
-  useEffect(() => {
-    const handleScrollProgress = () => {
-      const totalHeight = document.documentElement.scrollHeight - window.innerHeight;
-      if (totalHeight > 0) {
-        const currentProgress = (window.scrollY / totalHeight) * 100;
-        setReadingPercent(Math.min(100, Math.max(0, currentProgress)));
-      }
-    };
-
-    window.addEventListener("scroll", handleScrollProgress, { passive: true });
-    return () => window.removeEventListener("scroll", handleScrollProgress);
-  }, []);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-zinc-50 via-purple-50/20 to-pink-50/20 dark:from-zinc-950 dark:via-purple-950/10 dark:to-pink-950/10">
