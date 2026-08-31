@@ -8,13 +8,19 @@ import { onAuthStateChanged } from "firebase/auth";
 import type { Story } from "@/types/story";
 import { getAllReadingProgress } from "@/lib/reading-progress";
 import type { ReadingProgress } from "@/types/reading-progress";
+import {
+  getCachedStories,
+  setCachedStories,
+  saveHomeScrollPosition,
+  getHomeScrollPosition,
+} from "@/lib/stories-cache";
 
 export default function Home() {
-  const [stories, setStories] = useState<Story[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [stories, setStories] = useState<Story[]>(() => getCachedStories()?.stories ?? []);
+  const [loading, setLoading] = useState(() => !getCachedStories());
   const [userId, setUserId] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [chapterCounts, setChapterCounts] = useState<Map<string, number>>(new Map());
+  const [chapterCounts, setChapterCounts] = useState<Map<string, number>>(() => getCachedStories()?.chapterCounts ?? new Map());
   const [readingProgress, setReadingProgress] = useState<Record<string, ReadingProgress>>({});
   const [sortBy, setSortBy] = useState<'default' | 'lastRead'>('default');
 
@@ -25,6 +31,15 @@ export default function Home() {
   const [newSource, setNewSource] = useState("");
 
   useEffect(() => {
+    // If cached stories exist, use them and skip Firestore fetch
+    const cached = getCachedStories();
+    if (cached) {
+      setStories(cached.stories);
+      setChapterCounts(cached.chapterCounts);
+      setLoading(false);
+      return;
+    }
+
     const run = async () => {
       try {
         if (!db) {
@@ -51,13 +66,42 @@ export default function Home() {
             })
           );
           setChapterCounts(counts);
+          setCachedStories(items, counts);
         }
+      } catch (err) {
+        console.error("Error fetching stories:", err);
       } finally {
         setLoading(false);
       }
     };
     run();
   }, []);
+
+  // Track scroll position on home page
+  useEffect(() => {
+    const handleScroll = () => {
+      saveHomeScrollPosition(window.scrollY);
+    };
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => {
+      window.removeEventListener("scroll", handleScroll);
+    };
+  }, []);
+
+  // Restore scroll position when data is ready
+  useEffect(() => {
+    if (!loading && stories.length > 0) {
+      const savedScroll = getHomeScrollPosition();
+      if (savedScroll > 0) {
+        requestAnimationFrame(() => {
+          window.scrollTo({
+            top: savedScroll,
+            behavior: "instant" as ScrollBehavior,
+          });
+        });
+      }
+    }
+  }, [loading, stories.length]);
 
   useEffect(() => {
     // Load reading progress
@@ -92,10 +136,11 @@ export default function Home() {
     setNewSource("");
     setIsModalOpen(false);
 
-    // Refresh stories list
+    // Refresh stories list and update cache
     const snap = await getDocs(collection(db, "stories"));
     const items: Story[] = snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<Story, "id">) }));
     setStories(items);
+    setCachedStories(items, chapterCounts);
   };
 
   const closeModal = () => {

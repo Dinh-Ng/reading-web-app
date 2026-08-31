@@ -8,6 +8,11 @@ import { onAuthStateChanged } from "firebase/auth";
 import type { Story, Chapter } from "@/types/story";
 import { getReadingProgress } from "@/lib/reading-progress";
 import type { ReadingProgress } from "@/types/reading-progress";
+import {
+  updateCachedStory,
+  removeCachedStory,
+  updateCachedChapterCount,
+} from "@/lib/stories-cache";
 
 export default function StoryPage() {
   const { id } = useParams<{ id: string }>();
@@ -112,6 +117,7 @@ export default function StoryPage() {
 
     await updateDoc(doc(db, "stories", story.id), updates);
     setStory({ ...story, ...updates });
+    updateCachedStory(story.id, updates);
     closeStoryModal();
   };
 
@@ -123,6 +129,7 @@ export default function StoryPage() {
     const chSnap = await getDocs(collection(db, "stories", story.id, "chapters"));
     await Promise.all(chSnap.docs.map((d) => deleteDoc(doc(storyRef, "chapters", d.id))));
     await deleteDoc(storyRef);
+    removeCachedStory(story.id);
     window.location.href = "/";
   };
 
@@ -187,6 +194,7 @@ export default function StoryPage() {
         return at.localeCompare(bt);
       });
       setChapters(list);
+      updateCachedChapterCount(story.id, list.length);
       closeChapterModal();
     } catch (e) {
       console.error(e);
@@ -237,7 +245,9 @@ export default function StoryPage() {
 
     const chapterRef = doc(db, "stories", story.id, "chapters", chapterId);
     await deleteDoc(chapterRef);
-    setChapters(chapters.filter((c) => c.id !== chapterId));
+    const updatedChapters = chapters.filter((c) => c.id !== chapterId);
+    setChapters(updatedChapters);
+    updateCachedChapterCount(story.id, updatedChapters.length);
   };
 
   if (loading) {

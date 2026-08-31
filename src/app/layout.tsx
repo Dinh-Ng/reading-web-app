@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
+import Link from "next/link";
 import "./globals.css";
 import AuthButton from "@/components/AuthButton";
 
@@ -26,7 +27,7 @@ export default function RootLayout({
       >
         <header className="sticky top-0 z-40 border-b border-zinc-200/60 dark:border-zinc-800/60 bg-white/85 dark:bg-zinc-900/85 backdrop-blur-md transition-colors">
           <div className="mx-auto max-w-6xl px-4 sm:px-6 py-3.5 flex items-center justify-between gap-4">
-            <a
+            <Link
               href="/"
               className="flex items-center gap-3 group focus-visible:ring-2 focus-visible:ring-purple-500 rounded-xl p-1 -m-1 transition-transform active:scale-95"
               aria-label="Truyện Chữ - Về trang chủ"
@@ -39,7 +40,7 @@ export default function RootLayout({
               <h1 className="text-xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent tracking-tight">
                 Truyện Chữ
               </h1>
-            </a>
+            </Link>
             <AuthButton />
           </div>
         </header>
