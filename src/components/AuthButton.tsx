@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { auth, googleProvider } from "@/lib/firebase";
-import { onAuthStateChanged, signInWithPopup, signOut, type User } from "firebase/auth";
+import { onAuthStateChanged, signInWithRedirect, getRedirectResult, signOut, type User } from "firebase/auth";
 
 export default function AuthButton() {
   const [user, setUser] = useState<User | null>(null);
@@ -13,6 +13,24 @@ export default function AuthButton() {
       setLoading(false);
       return;
     }
+
+    // Handle redirect result after returning from Google sign-in page
+    getRedirectResult(auth)
+      .then((result) => {
+        // result is non-null only right after a successful redirect
+        if (result?.user) {
+          // onAuthStateChanged will also fire, no need to setUser here
+        }
+      })
+      .catch((error: any) => {
+        if (
+          error?.code !== "auth/cancelled-popup-request" &&
+          error?.code !== "auth/popup-closed-by-user"
+        ) {
+          console.error("Redirect login error:", error);
+        }
+      });
+
     const unsub = onAuthStateChanged(auth, (u) => {
       setUser(u);
       setLoading(false);
@@ -24,13 +42,10 @@ export default function AuthButton() {
     if (!auth || authLoading) return;
     setAuthLoading(true);
     try {
-      await signInWithPopup(auth, googleProvider);
+      await signInWithRedirect(auth, googleProvider);
+      // Page will redirect — no further action needed here
     } catch (error: any) {
-      // Ignore cancelled popup errors (user closed popup)
-      if (error?.code !== 'auth/cancelled-popup-request' && error?.code !== 'auth/popup-closed-by-user') {
-        console.error('Login error:', error);
-      }
-    } finally {
+      console.error("Login error:", error);
       setAuthLoading(false);
     }
   };
@@ -41,7 +56,7 @@ export default function AuthButton() {
     try {
       await signOut(auth);
     } catch (error) {
-      console.error('Logout error:', error);
+      console.error("Logout error:", error);
     } finally {
       setAuthLoading(false);
     }
@@ -99,7 +114,7 @@ export default function AuthButton() {
         {authLoading ? (
           <>
             <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-            <span>Đang đăng nhập...</span>
+            <span>Đang chuyển hướng...</span>
           </>
         ) : (
           <>
@@ -116,4 +131,3 @@ export default function AuthButton() {
     </button>
   );
 }
-
