@@ -3,6 +3,7 @@ export type Story = {
   title: string;
   createdBy?: string;
   createdAt?: unknown;
+  updatedAt?: unknown;
   author?: string;
   authorLink?: string;
   source?: string;

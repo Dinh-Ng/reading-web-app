@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { auth, db } from "@/lib/firebase";
-import { collection, deleteDoc, doc, getDoc, getDocs, updateDoc, addDoc } from "firebase/firestore";
+import { collection, deleteDoc, doc, getDoc, getDocs, updateDoc, addDoc, serverTimestamp } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
 import type { Story, Chapter } from "@/types/story";
 import { getReadingProgress } from "@/lib/reading-progress";
@@ -113,11 +113,13 @@ export default function StoryPage() {
       author: authorInput.trim(),
       authorLink: authorLinkInput.trim(),
       source: sourceInput.trim(),
+      updatedAt: serverTimestamp(),
     };
 
     await updateDoc(doc(db, "stories", story.id), updates);
-    setStory({ ...story, ...updates });
-    updateCachedStory(story.id, updates);
+    const { updatedAt: _ts, ...localUpdates } = updates;
+    setStory({ ...story, ...localUpdates, updatedAt: Date.now() });
+    updateCachedStory(story.id, { ...localUpdates, updatedAt: Date.now() });
     closeStoryModal();
   };
 
@@ -182,6 +184,7 @@ export default function StoryPage() {
       const chapterData = { title, content, index };
       const chaptersRef = collection(db, "stories", story.id, "chapters");
       await addDoc(chaptersRef, chapterData);
+      await updateDoc(doc(db, "stories", story.id), { updatedAt: serverTimestamp() });
 
       const snap = await getDocs(chaptersRef);
       const list: Chapter[] = snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<Chapter, "id">) }));
@@ -218,6 +221,7 @@ export default function StoryPage() {
 
       const chapterRef = doc(db, "stories", story.id, "chapters", editingChapterId);
       await updateDoc(chapterRef, updates);
+      await updateDoc(doc(db, "stories", story.id), { updatedAt: serverTimestamp() });
 
       const chaptersRef = collection(db, "stories", story.id, "chapters");
       const snap = await getDocs(chaptersRef);
@@ -245,6 +249,7 @@ export default function StoryPage() {
 
     const chapterRef = doc(db, "stories", story.id, "chapters", chapterId);
     await deleteDoc(chapterRef);
+    await updateDoc(doc(db, "stories", story.id), { updatedAt: serverTimestamp() });
     const updatedChapters = chapters.filter((c) => c.id !== chapterId);
     setChapters(updatedChapters);
     updateCachedChapterCount(story.id, updatedChapters.length);
