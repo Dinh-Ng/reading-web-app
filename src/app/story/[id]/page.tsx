@@ -13,6 +13,7 @@ import {
   removeCachedStory,
   updateCachedChapterCount,
 } from "@/lib/stories-cache";
+import QuickScrollButtons from "@/components/QuickScrollButtons";
 
 export default function StoryPage() {
   const { id } = useParams<{ id: string }>();
@@ -703,6 +704,9 @@ export default function StoryPage() {
           </div>
         </div>
       )}
+
+      {/* Quick Scroll Navigation */}
+      <QuickScrollButtons />
     </div>
   );
 }
